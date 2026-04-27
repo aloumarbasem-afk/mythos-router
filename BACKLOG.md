@@ -1,37 +1,64 @@
 # BACKLOG.md — mythos-router
 
-> Engineering work that's correct but not user-impacting today.
-> Review when: SDK adoption exists, or during a dedicated hardening cycle.
+> Engineering considerations that are correct but not user-impacting under current scale.
+> Revisit when SDK usage becomes external or system operates under sustained high concurrency.
 
 ---
 
 ## Runtime Hygiene
 
 ### Dream duration tracking
-`dream.ts` hardcodes `durationMs: 0` in the session metric. Capture `Date.now()` before the spinner and use it. Pure correctness, no user impact.
+- **Component**: `dream.ts`
+- **Behavior**: `durationMs` is currently hardcoded as 0
+- **Improvement**: Capture start timestamp before execution and compute elapsed time
+- **Impact**: None (observability-only correction)
 
 ---
 
-## System Robustness (Future Scale)
+## System Robustness (Scale-Dependent)
 
-### Orchestrator test coverage
-608 lines of scoring, fallback, circuit breaker, and retry logic with zero tests. Create a `MockProvider` implementing `BaseProvider` and test: provider selection by score, fallback chains, circuit breaker trips/resets, retry backoff, deterministic selection.
+### Orchestrator complexity surface area
+- **Component**: `orchestrator.ts`
+- **Behavior under scale**: Routing logic includes scoring, fallback chains, and circuit breaker logic without automated coverage
+- **Consideration**: Increases refactor risk and onboarding cost for external contributors
+- **Revisit when**: Orchestrator becomes a stable external SDK dependency or undergoes major refactor
 
-**When it matters**: Before any significant refactor of the orchestrator, or when adding a new provider.
-
-### Concurrent safety guarantees
-After fixing concurrency tracking, add `Promise.all`-based test cases to verify the counter behaves correctly under parallel `streamMessage` calls.
-
-**When it matters**: Only if SDK usage becomes part of the product promise.
+### Concurrent execution safety
+- **Component**: `orchestrator.ts` (SDK surface)
+- **Behavior under scale**: Concurrent `streamMessage` invocations may expose race conditions in concurrency control or telemetry aggregation
+- **Consideration**: Currently low probability in CLI usage; increases under programmatic SDK adoption
+- **Revisit when**: SDK is used in parallel request-heavy environments
 
 ---
 
-## Nice-to-Have
+## Context Management
 
-| Item | Note |
+### Token estimation accuracy
+- **Component**: `chat.ts` (Context Guard)
+- **Behavior under scale**: Length-based estimation may undercount structured or code-dense inputs
+- **Consideration**: Risk of premature truncation or unexpected API boundary hits
+- **Revisit when**: Users report reliability issues with long or structured conversations
+
+### Compression ratio stability
+- **Component**: `chat.ts` (Context Guard)
+- **Behavior under scale**: Fixed 60% history compression may be suboptimal across mixed-density sessions
+- **Consideration**: Can lead to either over-compression (loss of detail) or under-compression (context overflow risk)
+- **Revisit when**: Context retention quality becomes a reported usability concern
+
+### Recursive compression degradation
+- **Component**: `chat.ts` (Context Guard)
+- **Behavior under scale**: Repeated compression cycles may reduce information fidelity over long sessions
+- **Consideration**: Risk of "summary-of-summary" drift in extreme usage patterns
+- **Revisit when**: Long-running sessions become a primary usage pattern
+
+---
+
+## Nice-to-Have (Engineering Improvements)
+
+| Area | Consideration |
 |------|------|
-| `--json` flag for `stats` and `providers` | Machine-readable output for CI/dashboards |
-| `mythos init` command | Scaffold `.mythosignore`, `MEMORY.md`, detect project stack |
-| Structured error codes in orchestrator | Replace string-matching (`msg.includes('overloaded')`) with typed error categories |
-| Telemetry retention query improvement | Current `MAX(id) - N` is fragile with ID gaps; use `ORDER BY id DESC LIMIT` subquery |
-| Metrics storage migration | Current JSON read-parse-write-all is fine for years at CLI scale. Revisit if session count exceeds ~5,000 |
+| CLI output serialization | Add `--json` mode for CI and automation usage |
+| Project initialization | `mythos init` to scaffold ignore rules, memory store, and project detection |
+| Error classification | Replace string-matching with structured error types in orchestrator |
+| Telemetry query robustness | Replace ID-based pagination with deterministic ordering (`ORDER BY id DESC LIMIT`) |
+| Storage scalability | Current JSON-based metrics storage is sufficient until large session volumes (~5k+ sessions) |
