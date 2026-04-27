@@ -1,16 +1,16 @@
 import * as readline from 'node:readline';
 import * as path from 'node:path';
-import { streamMessage, formatTokenUsage, type Message, type MythosResponse } from '../client.js';
-import { SWDEngine, parseActions, resolveSafePath, summarizeActions, type FileAction, type SWDRunResult } from '../swd.js';
+import { formatTokenUsage, getOrchestrator, type Message, type MythosResponse } from '../client.js';
+import { SWDEngine, parseActions, summarizeActions, type SWDRunResult } from '../swd.js';
 import { printSWDResults, dryRunSWD, printVerboseParse } from '../swd-cli.js';
 import { saveSessionMetric } from '../metrics.js';
 import { appendEntry, appendMetadataBlock, needsDream, getMemoryContext, printMemoryStatus } from '../memory.js';
 import { type EffortLevel, MAX_CORRECTION_RETRIES, MODELS, validateApiKey } from '../config.js';
-import { c, Spinner, BANNER, hr, heading, dryRunBadge, error as logError, warn as logWarn, success as logSuccess, runTestCommand } from '../utils.js';
+import { c, Spinner, BANNER, hr, heading, error as logError, warn as logWarn, success as logSuccess, runTestCommand } from '../utils.js';
 import { SessionBudget } from '../budget.js';
-import { getOrchestrator } from '../client.js';
-import { buildSkillPrompt, listSkills, ensureSkillsDir } from '../skills.js';
+import { buildSkillPrompt } from '../skills.js';
 import { isGitRepo, hasUncommittedChanges, getCurrentBranch, commitChanges, getLatestHash, createAndCheckoutBranch } from '../git.js';
+import { saveSession, loadSession, formatResumeInfo } from '../session.js';
 
 // ── UI Abstraction ──────────────────────────────────────────
 export interface ChatUI {
@@ -47,7 +47,7 @@ class ChatSession {
     let budgetMultiplier = 1.0;
     try {
       const skills = typeof options.skill === 'string' ? [options.skill] : (options.skill || []);
-      const skillResult = buildSkillPrompt(getMemoryContext() ? '' : '', skills); // We inject context later
+      const skillResult = buildSkillPrompt('', skills);
       this.finalSystemPrompt = skillResult.prompt;
       this.maxOutputTokens = skillResult.maxOutputTokens;
       this.forceProvider = skillResult.forceProvider;
@@ -486,6 +486,19 @@ class ChatSession {
         timestamp: new Date().toISOString(),
       });
     }
+
+    // Persist session for --resume
+    if (this.history.length > 0 && !this.options.dryRun) {
+      try {
+        saveSession(this.history, {
+          inputTokens: snap.inputTokens,
+          outputTokens: snap.outputTokens,
+          turns: snap.turns,
+        }, path.basename(process.cwd()));
+      } catch (err: any) {
+        logWarn(`Session save failed: ${err.message}`);
+      }
+    }
   }
 }
 
@@ -520,6 +533,7 @@ interface ChatOptions {
   testCmd?: string;
   maxTestRetries?: string;
   skill?: string | string[];
+  resume?: boolean;
 }
 
 export async function chatCommand(options: ChatOptions): Promise<void> {
@@ -530,6 +544,19 @@ export async function chatCommand(options: ChatOptions): Promise<void> {
   ui.log(BANNER);
   ui.log(heading(`CHAT SESSION :: ${MODELS.high.toUpperCase()}`));
   if (options.dryRun) ui.log(`  ${c.bgYellow}${c.black}${c.bold} DRY-RUN MODE ACTIVE ${c.reset}\n`);
+
+  // ── Resume previous session if requested ────────────────
+  if (options.resume) {
+    const saved = loadSession();
+    if (saved) {
+      session.history = saved.history;
+      // Re-record previous budget usage so the limiter is aware
+      session.budget.record(saved.budget.inputTokens, saved.budget.outputTokens);
+      ui.success(formatResumeInfo(saved));
+    } else {
+      ui.warn('No resumable session found. Starting fresh.');
+    }
+  }
 
   let sandboxBranch: string | null = null;
   try {
@@ -549,6 +576,25 @@ export async function chatCommand(options: ChatOptions): Promise<void> {
     prompt: `${c.magenta}${c.bold}mythos > ${c.reset}`,
   });
 
+  let finalized = false;
+  const safeExit = async () => {
+    if (finalized) return;
+    finalized = true;
+    try {
+      await session.finalize(sandboxBranch);
+    } catch (err: any) {
+      logWarn(`Finalize failed: ${err.message}`);
+    }
+    process.exit(0);
+  };
+
+  process.on('SIGINT', () => safeExit());
+  process.on('SIGTERM', () => safeExit());
+  process.on('uncaughtException', async (err) => {
+    logError(`Unexpected error: ${err.stack || err.message}`);
+    await safeExit();
+  });
+
   rl.prompt();
 
   rl.on('line', async (line) => {
@@ -561,9 +607,6 @@ export async function chatCommand(options: ChatOptions): Promise<void> {
     rl.prompt();
   });
 
-  rl.on('close', async () => {
-    await session.finalize(sandboxBranch);
-    process.exit(0);
-  });
+  rl.on('close', safeExit);
 }
 
