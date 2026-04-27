@@ -9,8 +9,7 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import * as os from 'node:os';
-// @ts-ignore - node:sqlite is experimental in some versions
-import { DatabaseSync } from 'node:sqlite';
+import { getDatabaseSync } from '../sqlite-loader.js';
 
 export interface ProviderState {
   id: string;
@@ -47,7 +46,7 @@ const RETENTION_LIMIT = 1000;
 
 export class TelemetryStore {
   private static instance: TelemetryStore;
-  private db: DatabaseSync;
+  private db: InstanceType<ReturnType<typeof getDatabaseSync>>;
   
   private metricUpdates = new Map<string, ProviderState>();
   private decisionQueue: RoutingDecision[] = [];
@@ -61,6 +60,7 @@ export class TelemetryStore {
       fs.mkdirSync(TELEMETRY_DIR, { recursive: true });
     }
 
+    const DatabaseSync = getDatabaseSync();
     this.db = new DatabaseSync(TELEMETRY_DB_FILE);
     this.db.exec('PRAGMA journal_mode=WAL;');
     this.db.exec('PRAGMA synchronous=NORMAL;');
