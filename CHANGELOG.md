@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.5.0] — 2026-04-30
+
+### Added
+- **`mythos init` Command**: One-shot project onboarding that:
+  - validates environment (Node.js, SQLite, Git)
+  - detects providers with actionable fix hints
+  - scaffolds `.mythosignore`, `MEMORY.md`, and skills directory
+
+### Changed
+- **CLI Output Clarity**: Replaced internal terminology (e.g., "derivative index") with user-facing language ("memory index").
+
+---
+
 ## [1.4.0] — 2026-04-27
 
 ### Added
@@ -185,6 +198,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Correction Turns**: max 2 retries before yielding to human.
 - **Dream/Verify Commands**: memory compression and drift detection.
 
+[1.5.0]: https://github.com/thewaltero/mythos-router/releases/tag/v1.5.0
 [1.4.0]: https://github.com/thewaltero/mythos-router/releases/tag/v1.4.0
 [1.3.1]: https://github.com/thewaltero/mythos-router/releases/tag/v1.3.1
 [1.3.0]: https://github.com/thewaltero/mythos-router/releases/tag/v1.3.0
