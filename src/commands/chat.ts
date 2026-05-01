@@ -5,7 +5,7 @@ import { SWDEngine, parseActions, summarizeActions, type SWDRunResult } from '..
 import { printSWDResults, dryRunSWD, printVerboseParse } from '../swd-cli.js';
 import { saveSessionMetric } from '../metrics.js';
 import { appendEntry, appendMetadataBlock, needsDream, getMemoryContext, printMemoryStatus } from '../memory.js';
-import { type EffortLevel, MAX_CORRECTION_RETRIES, MODELS, validateApiKey } from '../config.js';
+import { type EffortLevel, MAX_CORRECTION_RETRIES, MODELS, CAPYBARA_SYSTEM_PROMPT, validateApiKey } from '../config.js';
 import { c, Spinner, BANNER, hr, heading, error as logError, warn as logWarn, success as logSuccess, runTestCommand } from '../utils.js';
 import { SessionBudget } from '../budget.js';
 import { buildSkillPrompt } from '../skills.js';
@@ -34,6 +34,9 @@ class ChatSession {
   public finalSystemPrompt: string = '';
   public maxOutputTokens?: number;
   public forceProvider?: string;
+  public allowFallback?: boolean;
+  public timeoutMs?: number;
+  public requiresTools?: boolean;
   private ui: ChatUI;
 
   constructor(options: ChatOptions, ui: ChatUI) {
@@ -47,11 +50,20 @@ class ChatSession {
     let budgetMultiplier = 1.0;
     try {
       const skills = typeof options.skill === 'string' ? [options.skill] : (options.skill || []);
-      const skillResult = buildSkillPrompt('', skills);
+      const skillResult = buildSkillPrompt(CAPYBARA_SYSTEM_PROMPT, skills);
       this.finalSystemPrompt = skillResult.prompt;
       this.maxOutputTokens = skillResult.maxOutputTokens;
       this.forceProvider = skillResult.forceProvider;
+      this.allowFallback = skillResult.allowFallback;
+      this.timeoutMs = skillResult.timeoutMs;
       budgetMultiplier = skillResult.budgetMultiplier;
+
+      // requiresTools is parsed but no providers implement tool_calling yet.
+      // Warn and neutralize so the orchestrator doesn't reject all providers.
+      if (skillResult.requiresTools) {
+        this.ui.warn('Skill declares requires-tools, but tool calling is not yet implemented. This field is reserved for future use.');
+        this.requiresTools = false;
+      }
 
       if (skillResult.skills.length > 0) {
         this.ui.divider();
@@ -161,7 +173,8 @@ class ChatSession {
           systemPrompt: 'You are a core memory compression system. Be extremely dense and factual.',
           effort: 'low',
           maxTokens: 4096,
-          deterministic: !!this.forceProvider
+          deterministic: !!this.forceProvider,
+          forceProvider: this.forceProvider
         }
       );
 
@@ -182,6 +195,11 @@ class ChatSession {
   }
 
   public async processInput(input: string): Promise<void> {
+    if (!this.budget.check().ok) {
+      this.ui.warn('Session budget exhausted. Please start a new session or increase limits.');
+      return;
+    }
+
     await this.enforceContextWindowGuard();
 
     this.history.push({ role: 'user', content: input });
@@ -199,6 +217,10 @@ class ChatSession {
           effort: this.options.effort as EffortLevel,
           maxTokens: this.maxOutputTokens,
           deterministic: !!this.forceProvider,
+          forceProvider: this.forceProvider,
+          allowFallback: this.allowFallback,
+          timeoutMs: this.timeoutMs,
+          requiresTools: this.requiresTools,
           onThinkingDelta: (delta) => {
             thinkingTokens += Math.ceil(delta.length / 4);
             this.ui.updateLoading(`Thinking... ${c.yellow}~${thinkingTokens} tokens${c.reset}`);
@@ -270,8 +292,9 @@ class ChatSession {
     this.ui.stopLoading();
     printSWDResults(result);
 
+    let finalResult = result;
     if (!result.success) {
-      await this.runCorrectionLoop(result);
+      finalResult = await this.runCorrectionLoop(result);
     }
 
     if (this.options.testCmd) {
@@ -282,16 +305,16 @@ class ChatSession {
       }
     }
 
-    const status = result.success ? '✅ verified' : `⚠️ ${result.results.filter(r => r.status !== 'verified').length} issues`;
+    const status = finalResult.success ? '✅ verified' : `⚠️ ${finalResult.results.filter(r => r.status !== 'verified').length} issues`;
     appendEntry(summarizeActions(responseText, userInput), status, false);
   }
 
-  private async runCorrectionLoop(lastResult: SWDRunResult): Promise<void> {
+  private async runCorrectionLoop(lastResult: SWDRunResult): Promise<SWDRunResult> {
     for (let attempt = 1; attempt <= MAX_CORRECTION_RETRIES; attempt++) {
       const budgetCheck = this.budget.check();
       if (!budgetCheck.ok) {
         this.ui.warn('Correction aborted — budget exhausted.');
-        return;
+        return lastResult;
       }
 
       this.ui.log(`\n${c.yellow}⟲ SWD Correction Turn ${attempt}/${MAX_CORRECTION_RETRIES}${c.reset}`);
@@ -316,6 +339,10 @@ class ChatSession {
             effort: this.options.effort as EffortLevel,
             maxTokens: this.maxOutputTokens,
             deterministic: !!this.forceProvider,
+            forceProvider: this.forceProvider,
+            allowFallback: this.allowFallback,
+            timeoutMs: this.timeoutMs,
+            requiresTools: this.requiresTools,
             onThinkingDelta: () => { }, // simple spinner
             onTextDelta: (delta) => {
               if (!streamStarted) {
@@ -338,20 +365,21 @@ class ChatSession {
 
         if (result.success) {
           this.ui.success('Correction successful.');
-          return;
+          return result;
         }
 
         if (attempt >= MAX_CORRECTION_RETRIES) {
           this.ui.error('Max corrections reached. Yielding to human.');
-          return;
+          return result;
         }
         lastResult = result;
       } catch (err: any) {
         this.ui.stopLoading();
         this.ui.error(`Correction failed: ${err.message}`);
-        return;
+        return lastResult;
       }
     }
+    return lastResult;
   }
 
   private async runTestHealingLoop(cmd: string): Promise<void> {
@@ -422,6 +450,10 @@ class ChatSession {
           effort: this.options.effort as EffortLevel,
           maxTokens: this.maxOutputTokens,
           deterministic: !!this.forceProvider,
+          forceProvider: this.forceProvider,
+          allowFallback: this.allowFallback,
+          timeoutMs: this.timeoutMs,
+          requiresTools: this.requiresTools,
           onThinkingDelta: () => { },
           onTextDelta: (delta) => {
             if (!streamStarted) {
@@ -466,7 +498,12 @@ class ChatSession {
     const repo = isGitRepo();
     if (repo && !this.options.dryRun) {
       try {
-        if (hasUncommittedChanges()) commitChanges('mythos: session end');
+        // Only auto-commit when running in a sandbox branch (--branch).
+        // Without --branch, committing would capture the user's unrelated
+        // uncommitted work under a generic "mythos: session end" message.
+        if (sandboxBranch && hasUncommittedChanges()) {
+          commitChanges('mythos: session end');
+        }
         commitHash = getLatestHash();
       } catch (err: any) { logWarn(`Auto-commit failed: ${err.message}`); }
     }
@@ -551,7 +588,7 @@ export async function chatCommand(options: ChatOptions): Promise<void> {
     if (saved) {
       session.history = saved.history;
       // Re-record previous budget usage so the limiter is aware
-      session.budget.record(saved.budget.inputTokens, saved.budget.outputTokens);
+      session.budget.restore(saved.budget.inputTokens, saved.budget.outputTokens, saved.budget.turns);
       ui.success(formatResumeInfo(saved));
     } else {
       ui.warn('No resumable session found. Starting fresh.');
