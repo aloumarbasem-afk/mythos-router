@@ -366,7 +366,10 @@ export function parseActions(output: string): FileAction[] {
     const contentStartIdx = block.indexOf(contentMarker);
     if (contentStartIdx !== -1) {
       // Content is everything between 'CONTENT:' and '[/FILE_ACTION]'
-      content = block.slice(contentStartIdx + contentMarker.length, block.lastIndexOf(END_TAG)).trim();
+      let rawContent = block.slice(contentStartIdx + contentMarker.length, block.lastIndexOf(END_TAG));
+      rawContent = rawContent.replace(/^\r?\n/, '');
+      rawContent = rawContent.replace(/\r?\n$/, '');
+      content = rawContent;
     }
 
     if (path && operation && description) {
