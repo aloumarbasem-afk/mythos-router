@@ -198,8 +198,12 @@ export class TelemetryStore {
 
       this.enforceRetention();
 
-    } catch (err) {
-      this.db.exec('ROLLBACK;');
+    } catch {
+      try {
+        this.db.exec('ROLLBACK;');
+      } catch {
+        // ignore rollback failure
+      }
     }
   }
 
@@ -226,9 +230,12 @@ export class TelemetryStore {
       this.flush();
     };
 
+    // Only use lifecycle events — never register SIGINT/SIGTERM here.
+    // Registering a SIGINT listener suppresses Node's default exit behavior,
+    // which can cause non-chat commands (e.g., providers --watch) to hang.
+    // Command-level code (chat.ts) owns signal handling and calls process.exit().
     process.on('exit', handleExit);
-    process.on('SIGINT', () => { handleExit(); process.exit(0); });
-    process.on('SIGTERM', () => { handleExit(); process.exit(0); });
+    process.on('beforeExit', handleExit);
   }
 
   public getProviderMetrics(): ProviderState[] {
