@@ -36,6 +36,8 @@ interface ProviderSlot {
   degradedUntil: number;  // Timestamp when circuit breaker resets
 }
 
+type OrchestratorTelemetry = Pick<TelemetryStore, 'updateMetrics' | 'logDecision' | 'logFailure'>;
+
 // ── Retry Configuration ──────────────────────────────────────
 const RETRY_BACKOFFS_MS = [100, 500, 1000] as const;
 const CIRCUIT_BREAKER_COOLDOWN_MS = 5 * 60 * 1000; // 5 minutes
@@ -113,13 +115,18 @@ export class ProviderOrchestrator {
   private slots: ProviderSlot[] = [];
   private eventLog: OrchestrationEvent[] = [];
   private sessionId: string;
-  private telemetry: Pick<TelemetryStore, 'updateMetrics' | 'logDecision' | 'logFailure'>;
+  private telemetry: OrchestratorTelemetry;
 
-  constructor() {
+  constructor(telemetry?: OrchestratorTelemetry) {
     this.sessionId = createHash('sha256')
       .update(`${Date.now()}-${Math.random()}`)
       .digest('hex')
       .slice(0, 12);
+    if (telemetry) {
+      this.telemetry = telemetry;
+      return;
+    }
+
     try {
       this.telemetry = TelemetryStore.getInstance();
     } catch {
