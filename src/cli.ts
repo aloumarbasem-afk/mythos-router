@@ -120,10 +120,26 @@ program
 // ── mythos verify ────────────────────────────────────────────
 program
   .command('verify')
-  .description('Scan codebase and verify file existence against MEMORY.md')
+  .description('Verify memory drift locally or run read-only CI checks for PR changes')
   .option(
     '--dry-run',
     'Preview verification without writing to MEMORY.md',
+  )
+  .option(
+    '--ci',
+    'Run read-only GitHub CI verification against the current PR/diff',
+  )
+  .option(
+    '--strict',
+    'In CI mode, fail on warnings as well as high-severity findings',
+  )
+  .option(
+    '--json',
+    'In CI mode, print machine-readable JSON',
+  )
+  .option(
+    '--base <ref>',
+    'In CI mode, compare against a specific base ref (default: GitHub base ref or HEAD~1)',
   )
   .action(verifyCommand);
 

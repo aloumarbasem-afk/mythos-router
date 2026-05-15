@@ -4,6 +4,8 @@ import { createHash } from 'node:crypto';
 import { readMemory, initMemory, appendEntry } from '../memory.js';
 import { DEFAULT_IGNORE_PATTERNS, MYTHOSIGNORE_FILE } from '../config.js';
 import { c, heading, success, warn, error, info, hr, dryRunBadge, theme } from '../utils.js';
+import { runCIVerification } from '../ci/verify.js';
+import { printCIVerifyReport } from '../ci/report.js';
 
 type MemoryEntry = {
   action: string;
@@ -37,7 +39,31 @@ interface VerifyOutcome {
   message: string;
 }
 
-export async function verifyCommand(options: { dryRun?: boolean } = {}): Promise<void> {
+export async function verifyCommand(options: { dryRun?: boolean; ci?: boolean; strict?: boolean; json?: boolean; base?: string } = {}): Promise<void> {
+  if (options.ci === true) {
+    try {
+      const report = runCIVerification({
+        base: options.base,
+        strict: options.strict === true,
+      });
+      printCIVerifyReport(report, options.json === true);
+      process.exitCode = report.summary.exitCode;
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      if (options.json === true) {
+        console.log(JSON.stringify({
+          tool: 'mythos-verify-ci',
+          error: message,
+          exitCode: 2,
+        }, null, 2));
+      } else {
+        error(message);
+      }
+      process.exitCode = 2;
+    }
+    return;
+  }
+
   const dryRun = options.dryRun === true;
 
   console.log(heading('SWD Verify — Codebase × Memory Sync'));
