@@ -53,7 +53,8 @@ Zero slop. Zero hallucinated state. Full adaptive thinking.
 
 | Feature | Description |
 |---------|-------------|
-|  **mythos init** | Single-command project onboarding with environment validation and scaffolding |
+|  **mythos init** | Single-command project onboarding with environment validation, read-only `--check`, and scaffolding |
+|  **mythos run** | One-shot prompt mode with inline, file, or stdin input: same SWD, budget, skills, branch, and optional test-healing pipeline as chat |
 |  **Multi-Provider Fallback** | Auto-routes between Anthropic, DeepSeek, and OpenAI with circuit breakers |
 |  **Skills Protocol** | Inject modular expert plugins via YAML frontmatter (`-s mcp`, `-s react`) |
 |  **Deterministic Caching** | SQLite-backed caching for reasoning (SDK only) *(Node 22+)* |
@@ -140,8 +141,22 @@ npm run chat
 
 ```bash
 mythos init                  # Initialize mythos-router in the current project
+mythos init --check          # Check environment and project setup without writing files
 mythos init --force          # Re-scaffold files even if they already exist
 ```
+
+### `mythos run` — One-Shot Task
+
+```bash
+mythos run "explain this repo architecture"
+mythos run --file TASK.md
+cat TASK.md | mythos run --stdin
+mythos run "update the docs for verify --ci" --dry-run
+mythos run "fix the failing smoke test" --test-cmd "npm test"
+mythos run "refactor provider scoring" --branch provider-score
+```
+
+`run` sends one prompt through the same Mythos pipeline as `chat`, including SWD verification, budget tracking, skills, branch sandboxing, receipts, and optional `--test-cmd` healing. The prompt can come from the command line, a local file, or piped stdin. It exits after that prompt instead of opening the interactive REPL, and it does not overwrite the resumable chat session used by `mythos chat --resume`.
 
 ### `mythos chat` — Interactive Session
 
