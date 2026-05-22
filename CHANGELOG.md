@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.11.0] - 2026-05-22
+
+### Added
+- **`mythos learn` Command** - Added deterministic repo skill generation that creates `.mythos/skills/repo/SKILL.md` from local repo structure, docs, package scripts, CI workflows, public surfaces, and security-sensitive files without running project commands or calling a model.
+
+### Changed
+- **Skill Onboarding** - Skills can now be bootstrapped from detected repository signals instead of requiring maintainers to write every rule pack from scratch.
+
+---
+
 ## [1.10.0] - 2026-05-20
 
 ### Added
@@ -340,6 +350,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Correction Turns** — max 2 retries before yielding to human.
 - **Dream/Verify Commands** — memory compression and drift detection.
 
+[1.11.0]: https://github.com/thewaltero/mythos-router/releases/tag/v1.11.0
 [1.10.0]: https://github.com/thewaltero/mythos-router/releases/tag/v1.10.0
 [1.9.0]: https://github.com/thewaltero/mythos-router/releases/tag/v1.9.0
 [1.8.1]: https://github.com/thewaltero/mythos-router/releases/tag/v1.8.1
