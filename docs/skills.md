@@ -33,6 +33,8 @@ mythos chat -s ./my-skill/SKILL.md
 ## Commands
 
 ```bash
+mythos learn
+mythos learn --dry-run
 mythos skills
 mythos skills new repo
 mythos skills new security-review --global
@@ -42,6 +44,10 @@ mythos skills check repo
 ```
 
 `mythos skills new <name>` creates a project-local skill by default. Use `--global` only for personal cross-repo skills.
+
+`mythos learn` generates `.mythos/skills/repo/SKILL.md` from deterministic local repo signals. It looks at docs, package metadata, source directories, CI workflows, config files, tests, command surfaces, and security-sensitive paths. It does not call a model and it does not run project commands. Treat the output as a strong first draft that should be reviewed and edited by the maintainer.
+
+The quality guard is simple: `learn` only writes rules derived from files it can see locally, validates the generated skill format before writing, refuses to overwrite an existing skill unless `--force` is passed, and supports `--dry-run` for review.
 
 ## Skill Format
 
@@ -143,4 +149,3 @@ Example skill files live in:
 
 - `docs/examples/skills/repo/SKILL.md`
 - `docs/examples/skills/security-review/SKILL.md`
-

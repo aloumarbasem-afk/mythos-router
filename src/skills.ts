@@ -73,6 +73,12 @@ export interface CreateSkillOptions {
   cwd?: string;
 }
 
+export interface ParseSkillContentOptions {
+  id?: string;
+  filePath: string;
+  scope: SkillScope;
+}
+
 const PROJECT_SKILLS_DIR = path.join('.mythos', 'skills');
 const GLOBAL_SKILLS_ENV = 'MYTHOS_SKILLS_DIR';
 const SKILL_FILE = 'SKILL.md';
@@ -198,12 +204,9 @@ function resolveNamedSkill(name: string): { filePath: string; scope: Exclude<Ski
   return null;
 }
 
-function readSkillFile(filePath: string, scope: SkillScope, id = skillIdFromPath(filePath)): Skill {
-  if (!fs.existsSync(filePath)) {
-    throw new Error(`Skill file not found: ${filePath}`);
-  }
-
-  const content = fs.readFileSync(filePath, 'utf-8');
+export function parseSkillContent(content: string, options: ParseSkillContentOptions): Skill {
+  const { filePath, scope } = options;
+  const id = options.id ?? skillIdFromPath(filePath);
   const { meta, body } = parseFrontmatter(content);
 
   return {
@@ -225,6 +228,14 @@ function readSkillFile(filePath: string, scope: SkillScope, id = skillIdFromPath
     filePath,
     scope,
   };
+}
+
+function readSkillFile(filePath: string, scope: SkillScope, id = skillIdFromPath(filePath)): Skill {
+  if (!fs.existsSync(filePath)) {
+    throw new Error(`Skill file not found: ${filePath}`);
+  }
+
+  return parseSkillContent(fs.readFileSync(filePath, 'utf-8'), { id, filePath, scope });
 }
 
 export function loadSkill(nameOrPath: string): Skill {

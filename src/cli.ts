@@ -27,6 +27,7 @@ import { providersCommand } from './commands/providers.js';
 import { initCommand } from './commands/init.js';
 import { receiptsCommand } from './commands/receipts.js';
 import { skillsCommand } from './commands/skills.js';
+import { learnCommand } from './commands/learn.js';
 import {
   DEFAULT_MAX_TOKENS_PER_SESSION,
   DEFAULT_MAX_TURNS,
@@ -248,6 +249,16 @@ program
   .option('--force', 'Overwrite an existing skill when used with new')
   .option('--json', 'Print machine-readable JSON')
   .action(skillsCommand);
+
+// Repo skill learning
+program
+  .command('learn')
+  .description('Generate a repo-local skill pack from detected project structure')
+  .option('--name <name>', 'Project skill name to create', 'repo')
+  .option('--force', 'Overwrite an existing generated skill')
+  .option('--dry-run', 'Preview the generated skill without writing files')
+  .option('--json', 'Print machine-readable JSON')
+  .action(learnCommand);
 
 // ── mythos init ──────────────────────────────────────────────
 program

@@ -56,6 +56,7 @@ export {
   listSkills,
   validateSkill,
   validateSkills,
+  parseSkillContent,
   checkSkills,
   createSkill,
   buildSkillPrompt,
@@ -67,11 +68,21 @@ export {
   type SkillMeta,
   type SkillScope,
   type SkillValidation,
+  type ParseSkillContentOptions,
   type SkillListEntry,
   type SkillCheckIssue,
   type SkillCheckResult,
   type CreateSkillOptions,
 } from './skills.js';
+
+// Export Repo Learning helpers
+export {
+  analyzeRepo,
+  learnRepoSkill,
+  type RepoLearningProfile,
+  type LearnRepoSkillOptions,
+  type LearnRepoSkillResult,
+} from './learn.js';
 
 // Export SWD Receipts
 export {

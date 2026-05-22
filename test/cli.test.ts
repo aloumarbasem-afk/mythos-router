@@ -30,6 +30,7 @@ describe('CLI Smoke Tests', () => {
       assert.ok(output.includes('chat [options]'));
       assert.ok(output.includes('run [options]'));
       assert.ok(output.includes('skills [options]'));
+      assert.ok(output.includes('learn [options]'));
       assert.ok(output.includes('init [options]'));
     } catch (err: any) {
       assert.fail(
