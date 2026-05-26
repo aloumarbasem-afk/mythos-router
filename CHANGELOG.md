@@ -7,6 +7,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.14.0] - 2026-05-26
+
+### Added
+- **MCP Config Helper** - Added `mythos mcp config [generic|claude|cursor]` to print paste-ready stdio MCP client configuration.
+- **Project Policy File** - Added `.mythos/policy.json` for enforced repo-local SWD rules, including custom block/confirm globs, delete controls, operation allowlists, action batch limits, and write-size limits.
+- **PR-Ready Receipt Markdown** - Added `mythos receipts show latest --markdown`, `--pr`, and MCP `receipts_show` `format: "markdown"` for compact, paste-ready SWD receipt summaries in PR reviews.
+
+### Security
+- **Repo-Local SWD Guardrails** - Project policy rules are enforced before filesystem mutation across `chat`, `run`, `swd apply`, and MCP `swd_apply`; malformed policy files fail closed.
+- **Nested Sensitive Path Guards** - Built-in SWD safety rules now block or require confirmation for sensitive and command-affecting files inside nested project directories, preserving monorepo protection for paths such as `apps/api/.env`, `services/web/Dockerfile`, and `packages/app/package.json`.
+
+### Fixed
+- **Budget Limit Validation** - Invalid, non-finite, zero, or negative budget limits now fall back to safe defaults instead of producing meaningless percentage output.
+- **Provider Circuit Breaker Tuning** - Retryable provider failures now require consecutive exhausted requests before marking a provider degraded, avoiding a five-minute penalty from one transient 503-style event.
+- **Pricing Helper Documentation** - `getModelPricing` documentation now matches the implementation's conservative fallback behavior for unknown models.
+
+---
+
 ## [1.13.0] - 2026-05-25
 
 ### Added
@@ -380,6 +398,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Correction Turns** — max 2 retries before yielding to human.
 - **Dream/Verify Commands** — memory compression and drift detection.
 
+[1.14.0]: https://github.com/thewaltero/mythos-router/releases/tag/v1.14.0
 [1.13.0]: https://github.com/thewaltero/mythos-router/releases/tag/v1.13.0
 [1.12.0]: https://github.com/thewaltero/mythos-router/releases/tag/v1.12.0
 [1.11.0]: https://github.com/thewaltero/mythos-router/releases/tag/v1.11.0
