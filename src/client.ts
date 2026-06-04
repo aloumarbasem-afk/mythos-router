@@ -93,7 +93,7 @@ export function getOrchestrator(): ProviderOrchestrator {
         new OpenAIProvider({
           id: 'surplus',
           apiKey: providers.surplus,
-          baseUrl: process.env.MYTHOS_SURPLUS_BASE_URL?.trim() || 'https://surplusintelligence.ai/v1',
+          baseUrl: process.env.MYTHOS_SURPLUS_BASE_URL?.trim() || 'https://www.surplusintelligence.ai/api/inference/v1',
           defaultModel: process.env.MYTHOS_SURPLUS_MODEL?.trim() || 'claude-opus-4.8',
         }),
         {

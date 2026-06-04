@@ -607,7 +607,7 @@ This is a deliberate design choice, not a missing feature. Mythos asks the model
 | `DEEPSEEK_API_KEY` | Optional* | DeepSeek API key; can be used as the only configured provider or fallback |
 | `SURPLUS_API_KEY` | Optional* | [Surplus](https://www.surplusintelligence.ai) marketplace key (`inf_...`); OpenAI-compatible, routes the same models at a discount. Defaults to `claude-opus-4.8`. |
 | `MYTHOS_SURPLUS_MODEL` | Optional | Override the Surplus model id (default `claude-opus-4.8`) |
-| `MYTHOS_SURPLUS_BASE_URL` | Optional | Override the Surplus endpoint (default `https://surplusintelligence.ai/v1`) |
+| `MYTHOS_SURPLUS_BASE_URL` | Optional | Override the Surplus endpoint (default `https://www.surplusintelligence.ai/api/inference/v1`) |
 
 \* `mythos chat` and `mythos run` need at least one model provider key. `mythos swd apply` needs no model key because an external agent brings its own model/key and Mythos only verifies file actions.
 
